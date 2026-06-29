@@ -27,7 +27,7 @@ hardware: "Intel i7-1165G7 @ 2.80GHz | 19Gi RAM | Linux 7.0.14-zen1-1-zen"
 | Unique bots | 74 |
 | C_min thresholds tested | 3, 5, 10 |
 | Binary | `target/release/mev-revert-classifier` (release build) |
-| Classification criteria | Group by `(block_number, bot_address)`; ≥ C_min → HF Contention, < C_min → Blind Spam |
+| Classification criteria | Group by `(block_number, bot_address)`; >= C_min -> HF Contention, < C_min -> Blind Spam |
 
 ## 2. Hardware Environment (Required)
 
@@ -79,7 +79,7 @@ Bot `0x837b57a93d4c0e5be3d4c551730fd7f3b6f7722f` occupies all 10 top positions a
 
 **Key findings:**
 
-1. High-frequency contention dominates traffic: 91-94% of volume for C_min ∈ {3,5}. Even at C_min=10 it remains at 70%.
+1. High-frequency contention dominates traffic: 91-94% of volume for C_min in {3,5}. Even at C_min=10 it remains at 70%.
 2. A single bot (`0x837b57a93d...`) takes the entire top 10 with 80+ tx per block. This is an extreme outlier that warrants further investigation: is the bot competing against itself (internal redundancy), or is the query capturing multiple strategies from the same contract?
 3. Contention bots use less gas on average (86-88K) than spam bots (102-135K), suggesting gas optimization among elite bots.
 4. Only 2.6% of transactions are `reverted_spam` per Dune; 97.4% are `dry_run_probe`. This suggests bots are probing/simulating rather than failing.
