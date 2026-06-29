@@ -1,4 +1,4 @@
-# mev-revert-classifier
+# flashbots-revert-classifier
 
 CLI tool in Rust that ingests Dune Analytics CSV exports of failed MEV transactions and
 classifies them into two operational categories: **Blind Spam** and **HF Contention (Elite Colocation)**.
