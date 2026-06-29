@@ -69,13 +69,7 @@ El bot `0x837b57a93d4c0e5be3d4c551730fd7f3b6f7722f` ocupa las 10 posiciones del 
 
 ## 4. Artefactos Generados
 
-Los datos crudos estan en `artefactos/` (excluidos de git).
-
-- **JSON crudo (Dune API):** `artefactos/query_7843588_100k.json` (32,000 rows)
-- **CSV convertido:** `artefactos/dune_7843588_w30_32k.csv`
-- **Datasets menores (referencia):**
-  - `artefactos/dune_7809756_w30_b39872527-39872529_n100.csv` (100 filas)
-  - `artefactos/dune_7809756_w30_b39872527-39872555_n1000.csv` (1000 filas)
+Los datos crudos del Dune Query 7843588 (32,000 filas, 591 bloques, semana 30) estan disponibles bajo solicitud. El archivo `sample.csv` incluido en este repositorio permite verificar la herramienta con datos sinteticos.
 
 ## 5. Conclusiones y Siguientes Pasos
 
