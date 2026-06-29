@@ -69,7 +69,7 @@ El bot `0x837b57a93d4c0e5be3d4c551730fd7f3b6f7722f` ocupa las 10 posiciones del 
 
 ## 4. Artefactos Generados
 
-Los datos crudos del Dune Query 7843588 (32,000 filas, 591 bloques, semana 30) estan disponibles bajo solicitud. El archivo `sample.csv` incluido en este repositorio permite verificar la herramienta con datos sinteticos.
+Los datos crudos del Dune Query 7843588 (32,000 filas, 591 bloques, semana 30) estan disponibles bajo solicitud. El archivo `sample.csv` incluido en este repositorio es una muestra representativa del formato real para verificacion inmediata de la herramienta.
 
 ## 5. Conclusiones y Siguientes Pasos
 
