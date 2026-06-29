@@ -1,0 +1,7 @@
+target/
+artefactos/
+test_data.csv
+*.swp
+*~
+.DS_Store
+*.json
