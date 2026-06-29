@@ -6,6 +6,8 @@ classifies them into two operational categories: **Blind Spam** and **HF Content
 Built as a response to the Flashbots research forum discussion on transaction spam heuristics
 (query [7809756](https://dune.com/queries/7809756) by [m1kuwill](https://dune.com/m1kuwill)).
 
+**Full execution report with statistical breakdown:** [REPORT.md](REPORT.md)
+
 ## Methodology
 
 The classifier groups transactions by `(block_number, bot_address)` and applies a configurable
@@ -13,9 +15,6 @@ collision threshold `C_min` (default: 3). When `C_min` or more reverts target th
 contract within the same block, the cluster is classified as **HF Contention** (high-frequency
 competition between sophisticated searchers). Clusters below the threshold are **Blind Spam**
 (low-density, untargeted bot activity).
-
-This heuristic is documented in detail at
-`docs/07_fundamentos_teoricos/clasificacion-reverts-mev.md`.
 
 ## Requirements
 
@@ -79,9 +78,6 @@ CSV (csv + serde) → Vec<Transaction> → HashMap<(block, bot)> → Classifier 
 
 No async runtime. No parallelism. Three dependencies: `csv`, `serde`, `clap`.
 
-
-
-MIT
 ## License
 
 MIT
