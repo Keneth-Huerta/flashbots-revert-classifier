@@ -4,7 +4,7 @@ CLI tool in Rust that ingests Dune Analytics CSV exports of failed MEV transacti
 classifies them into two operational categories: **Blind Spam** and **HF Contention (Elite Colocation)**.
 
 Built as a response to the Flashbots research forum discussion on transaction spam heuristics
-(query [7809756](https://dune.com/queries/7809756) by [m1kuwill](https://dune.com/m1kuwill)).
+(query [7809756](https://dune.com/queries/7809756) by m1kuwill).
 
 **Full execution report with statistical breakdown:** [REPORT.md](REPORT.md)
 
