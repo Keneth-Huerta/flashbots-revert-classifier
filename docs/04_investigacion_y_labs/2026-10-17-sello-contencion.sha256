@@ -1,0 +1,15 @@
+# Sello AF-01 (2026-10-18T01:38Z), rustc 1.99.1 (58cf8f9c3 2026-10-13) (Arch Linux rust 1:1.99.1-1), commit base fb545c1
+75cdf7dde06eb1e2e44fd558d1812d4d5d2c8dcbdfd229f893f204c856ed48c3  docs/04_investigacion_y_labs/2026-10-17-preregistro-contencion.md
+713005f3e440f46230e53c54b61e59ac6a246d614e9bbfe0ef89e8f383419500  docs/07_fundamentos_teoricos/contencion-entre-bots.md
+79790f6d3b3fffdabb2bfe24d9f05ecf08b28b7a1a2e851dc27c19af8db94168  docs/adrs/002-ingesta-rpc-trazas.md
+901720ee72659e9a95630061cb6880e2f4a3282eead448182ac3937de2774ac4  docs/adrs/003-metrica-contencion-ponderada.md
+360a20bcc9943c252a866def01f6a4967a8bb963477641d522730be33517cccb  datos/muestra_bloques_v1.csv
+155e6ff7a6e26f3378a02e59b2aa890d4cdd5367bbd49e9a0f2caaca26eb880c  Cargo.toml
+5a1ed8c91e55eeded0af1ed5dbeff47578ddbd1d8a26ed31620d4929c73b1a45  Cargo.lock
+0880738c15917eb6baad8ed7f3d52bc93d718b0efae8fbc4eb62f25aba1a9276  src/contend.rs
+41002e4d49299c0e8a1017d80c9c523ff19be5e5ff7e2938a10d15a03c9fa089  src/extract.rs
+3f7a0646a9fddd63d76e13e8a95f8c5b533e0a5bdb3c080f07f9fae15effe42c  src/fetch.rs
+1d00b24e7f2f87c1322e16493bbd2db32a1c5c464fc030a38a4f2c9118d9a7f6  src/lib.rs
+f359888189779988867a34ad362fc2e33b3bea0167495fabd45a70cd25b86f95  src/main.rs
+c22d5825ed1bd858b9990c5a11edd1874318054035d7b2a0a5432ce6fbec5b61  src/rpc.rs
+8705e68ce9866ccd95fa7ffd1c2d3373dafdf383347261601dfeba0d57a5e626  src/sample.rs

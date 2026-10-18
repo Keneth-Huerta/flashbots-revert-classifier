@@ -1,7 +1,7 @@
 target/
 artefactos/
-test_data.csv
+.env
 *.swp
 *~
 .DS_Store
-*.json
+__pycache__/

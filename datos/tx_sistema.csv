@@ -1,0 +1,11 @@
+cadena,rol,direccion,fuente
+base,remitente,0xdeaddeaddeaddeaddeaddeaddeaddeaddead0001,"Remitente del deposito de atributos L1 de OP-stack (una tx por bloque)"
+base,destino,0x4200000000000000000000000000000000000015,"Predeploy L1Block, destino del deposito de atributos L1"
+op,remitente,0xdeaddeaddeaddeaddeaddeaddeaddeaddead0001,"Remitente del deposito de atributos L1 de OP-stack (una tx por bloque)"
+op,destino,0x4200000000000000000000000000000000000015,"Predeploy L1Block, destino del deposito de atributos L1"
+unichain,remitente,0xdeaddeaddeaddeaddeaddeaddeaddeaddead0001,"Remitente del deposito de atributos L1 de OP-stack (una tx por bloque)"
+unichain,destino,0x4200000000000000000000000000000000000015,"Predeploy L1Block, destino del deposito de atributos L1"
+unichain,destino,0x3c3a8a41e095c76b03f79f70955fff3b03cf753e,"Proxy FlashblockNumber del builder, permitIncrementFlashblockNumber 0xc91d7625"
+unichain,destino,0xd44f9d1331659f417a3e22c9e29529d498b66a29,"Proxy BlockBuilderPolicy, permitVerifyBlockBuilderProof 0x2dd8abfe"
+unichain,destino,0x7289e4e24fd8fb0382432ee7362c8610ef6f791e,"FlashtestationRegistry, llamado por BlockBuilderPolicy"
+unichain,remitente,0xcabba9e7f4b3a885c5aa069f88469ac711dd4acc,"EOA del builder: tx a la direccion cero, a FlashblockNumber y a BlockBuilderPolicy"

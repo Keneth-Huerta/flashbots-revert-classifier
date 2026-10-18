@@ -1,95 +1,164 @@
-# flashbots-revert-classifier
+# mev-revert-classifier
 
-CLI tool in Rust that ingests Dune Analytics CSV exports of failed MEV transactions and
-classifies them into two operational categories: **Blind Spam** and **HF Contention (Elite Colocation)**.
+Rust CLI and analysis scripts for studying **failed arbitrage attempts** (probes and reverts) on
+OP-stack chains: Base, Unichain and OP Mainnet. The repository holds the code, the block samples,
+the preregistrations and the sealed hashes of three studies:
 
-Built as a response to the Flashbots research forum discussion on transaction spam heuristics
-(query [7809756](https://dune.com/queries/7809756) by m1kuwill).
+| Study | Question | Chain | Sample |
+|---|---|---|---|
+| AF-01 | Do failed attempts of different entities share more pools in the same block than a within-hour permutation null? | Base | 4 weeks of 2025, about 800 blocks per week |
+| AF-02 | Inside a block, is the revert rate higher after a successful swap by another entity on the same pools? How much of the overlap is block-level synchrony? | Base | 48 weeks of 2025, 504 anchor blocks per week |
+| AF-03 | Same two tests as AF-02 | Unichain, OP Mainnet | 12 weeks of 2025 per chain |
 
-**Full execution report with statistical breakdown:** [REPORT.md](REPORT.md)
+Results are in [RESULTS.md](RESULTS.md). Short version: the overlap that v0.1.0 of this tool called
+"contention" is mostly one bot repeating itself, and the measurable evidence of a race inside the
+block is much smaller. AF-03 did not reach a decision on the race test in either chain.
 
-## Methodology
+## Definitions used here
 
-The classifier groups transactions by `(block_number, bot_address)` and applies a configurable
-collision threshold `C_min` (default: 3). When `C_min` or more reverts target the same bot
-contract within the same block, the cluster is classified as **HF Contention** (high-frequency
-competition between sophisticated searchers). Clusters below the threshold are **Blind Spam**
-(low-density, untargeted bot activity).
+- **Probe** (`dry_run_probe` in the Dune query): a *successful* transaction that emits no external
+  logs and carries at most 1 wei. It read state and stopped without swapping.
+- **Revert**: a transaction that reverted during execution.
+- **Entity**: bot contracts that share a sender are merged. It approximates an operator and is a
+  stated limitation, not an identification of anyone.
+
+## What this does not measure
+
+Counting attempts per bot and block measures how often *one* bot repeats itself. Version 0.1.0
+called dense groups "HF Contention" and a ~90% figure was quoted on the Flashblocks forum thread
+that started this work. That label was wrong. `REPORT.md` of v0.1.0 is removed from the tree (it
+stays in the git history) and superseded by [RESULTS.md](RESULTS.md).
 
 ## Requirements
 
-- Rust toolchain stable (1.75+)
-- CSV file exported from [Dune query 7809756](https://dune.com/queries/7809756)
+- Rust stable (the published numbers were produced with rustc 1.99.1)
+- Python 3 with `numpy` for `scripts/analisis/` (cross-checks of the Rust estimators)
+- To re-download chain data: an Alchemy API key with archive and `debug_traceBlockByNumber`
+  access, exported as `ALCHEMY_API_KEY` (or in a `.env` file, which is git-ignored)
 
-## Usage
+## Build and test
 
 ```bash
-cargo run --release -- --file dune_export.csv
+cargo build --release
+cargo test
+python3 -I -m unittest discover scripts/tests
 ```
 
-Options:
+## Quick start: per-bot density profile of a Dune export (v0.2 behaviour)
 
-```
--f, --file <FILE>          Path to Dune-exported CSV file
--t, --threshold <N>        Collision threshold C_min [default: 3]
---top-n <N>                Number of top contested bots to show [default: 10]
+```bash
+cargo run --release -- classify --file sample.csv
 ```
 
-### Example output
+`dataset.csv` is the 32,000-row export of Dune query 7843588 (a fork of Fei Wu and Burak Oz's
+query 7809756) used in the first report: 591 consecutive Base blocks, about 20 minutes on
+2025-12-24. It describes those 20 minutes only.
 
-```
-mev-revert-classifier v0.1.0
-============================================================
-File:           dune_export.csv
-Rows processed: 150,342
-Threshold (C_min): 3
+## Reproducing the studies
 
-Raw Breakdown (from Dune classification):
-  reverted_spam:  120,450
-  dry_run_probe:  29,892
+The raw chain captures (traces and receipts, many GB) are **not** in the repository. They are
+re-downloaded from an archive RPC. The block samples are deterministic and are committed in
+`datos/`; their sha256 are in the `*-sello-*.sha256` files under
+`docs/04_investigacion_y_labs/`. Cost on Alchemy pay-as-you-go: about US$0.9 for AF-03; AF-02
+needs a few dollars.
 
-============================================================
-Heuristic Classification (by bot block collisions)
-============================================================
-Blind Spam:        89,450 tx (59.5%)  |  12,340 unique bots
-HF Contention:     60,892 tx (40.5%)  |     856 unique bots
-------------------------------------------------------------
-Total:            150,342 tx (100.0%)
-============================================================
+Every confirmatory step checks a seal file (`sha256sum` format) before opening blocks. The
+preregistrations and block samples are byte-identical to what was sealed, so the gate passes
+with `--post-seal`, which tolerates changes to the other sealed files (see the note at the end of this section).
 
-Average Gas per Tx:
-  Blind Spam:      84.2K
-  HF Contention:   132.6K
+Set `B=target/release/mev-revert-classifier` and run from the repository root.
 
-Top 10 Most Contested Bots:
-  #1  0x7a250d5630...  (147 tx in block 18432001)
-  ...
+### AF-01 (Base, 4 weeks)
 
-Processing time: 342ms
+```bash
+S=docs/04_investigacion_y_labs/2026-10-17-sello-contencion.sha256
+$B fetch --blocks datos/muestra_bloques_v1.csv --split confirmatory --seal $S --post-seal \
+  --raw-dir artefactos/rpc/muestra_v1 --out artefactos/confirmatorio/rows.csv --workers 8
+$B contend --rows artefactos/confirmatorio/rows.csv --blocks datos/muestra_bloques_v1.csv \
+  --split confirmatory --metric weighted
+python3 -I scripts/analisis/check_contencion.py          # independent Python recount of bots and entities
 ```
 
-## Architecture
+### AF-02 (Base, 48 weeks)
 
-Written as a single-pass ETL pipeline:
+```bash
+S=docs/04_investigacion_y_labs/2026-10-18-sello-af02.sha256
+python3 scripts/ingesta/descarga_af02.py --sin-dvc     # week by week; resumable
+# then concatenate artefactos/af02/filas/*.csv (one header) into artefactos/af02/rows.csv
+$B race --rows artefactos/af02/rows.csv --raw artefactos/rpc_af02 \
+  --blocks datos/muestra_bloques_af02_anclas.csv --split confirmatory --boot-unit week
+$B neighbor --rows artefactos/af02/rows.csv --blocks datos/muestra_bloques_af02.csv \
+  --split confirmatory --boot-unit week
+python3 scripts/analisis/carrera_tasa.py --help        # Python cross-check of `race`
+python3 scripts/analisis/vecino.py --help              # Python cross-check of `neighbor`
+```
+
+`descarga_af02.py` writes one rows file per week; read its docstring first.
+
+### AF-03 (Unichain and OP Mainnet, 12 weeks each)
+
+Preregistered and deposited on Zenodo before any block of the drawn weeks was downloaded:
+**DOI [10.5281/zenodo.23457231](https://doi.org/10.5281/zenodo.23457231)**. The sealed hash list
+`2026-10-18-sello-af03.sha256` has an OpenTimestamps proof (`.ots`) next to it, and so does the
+preregistration.
+
+```bash
+S=docs/04_investigacion_y_labs/2026-10-18-sello-af03.sha256
+python3 scripts/analisis/sorteo_semanas_af03.py 2025-02-12   # the hash-based week draw (prints --stratum args)
+for c in op unichain; do
+  $B fetch --chain $c --v4-pools --blocks datos/muestra_bloques_af03_$c.csv --split confirmatory \
+    --seal $S --post-seal --raw-dir artefactos/rpc_af03/$c --out artefactos/af03/filas_$c.csv
+  $B race --chain $c --rows artefactos/af03/filas_$c.csv --raw artefactos/rpc_af03/$c \
+    --blocks datos/muestra_bloques_af03_${c}_anclas.csv --split confirmatory \
+    --boot-unit week --bootstrap 1000 --permutations 1000 --seed 20261017
+  $B neighbor --chain $c --rows artefactos/af03/filas_$c.csv \
+    --blocks datos/muestra_bloques_af03_$c.csv --split confirmatory \
+    --boot-unit week --bootstrap 1000 --seed 20261017
+done
+scripts/analisis/sens_af03.sh unichain                    # preregistered sensitivities
+```
+
+`scripts/ingesta/descarga_af03.sh` runs the download loop for both chains. System and builder
+transactions are excluded by the list `datos/tx_sistema.csv`.
+
+### About the seals
+
+The OpenTimestamps proofs and the Zenodo record fix the AF-03 preregistration and the hash list
+as they were on 2026-10-18. The seal files also list internal design notes that are **not published**: ADR 005 in the AF-03
+seal (sha256 `5bae3de071a35a87b26726f385f1a43443648bb9bd3ce97102e3997b95538498`), ADR 004 in the AF-02
+seal (`1c30c82edeff4bc382ae4c3c85ee7c8898744decb7165d05c9a71f1583d61d48`), and ADR 002 and 003 in the
+AF-01 seal (`79790f6d3b3fffdabb2bfe24d9f05ecf08b28b7a1a2e851dc27c19af8db94168`,
+`901720ee72659e9a95630061cb6880e2f4a3282eead448182ac3937de2774ac4`). Every other file of the AF-03
+seal is here byte for byte, so `sha256sum -c` on it gives 29 OK and 1 missing (ADR 005); the
+missing line is the only expected failure.
+The AF-01 and AF-02 seals list code that changed afterwards through declared post-seal deviations,
+so `sha256sum -c` reports those files as changed, plus the unpublished notes as missing. Their
+preregistrations and block samples are intact, which is what `--post-seal` checks (it tolerates
+missing non-preregistration files).
+
+## Repository layout
 
 ```
-CSV (csv + serde) → Vec<Transaction> → HashMap<(block, bot)> → Classifier → Console Report
+src/                 Rust library and CLI (classify, sample, fetch, contend, race, neighbor)
+tests/               Rust integration tests (synthetic data, no network)
+datos/               block samples, anchor files and the system-transaction list
+scripts/analisis/    Python re-implementations and descriptive analyses
+scripts/ingesta/     chain downloads
+scripts/tests/       tests of the Python scripts
+docs/04_investigacion_y_labs/   preregistrations, seal files, OpenTimestamps proofs
+docs/07_fundamentos_teoricos/   estimator derivations
 ```
 
-No async runtime. No parallelism. Three dependencies: `csv`, `serde`, `clap`.
+## Limits
 
-## License
+Observational data. The order of transactions inside a block is set by arrival time and fee as
+well as by state, so a higher revert rate after another entity's swap is not proof of
+competition. Entities are inferred from shared senders. Sampled weeks are from 2025 only.
 
-MIT
+## License and citation
 
-## Results (Sample Run)
+MIT, see [LICENSE](LICENSE). To cite the software or the AF-03 preregistration, use
+[CITATION.cff](CITATION.cff) (GitHub shows a "Cite this repository" button).
 
-Dune Query 7843588, Base L2, Week 30 (Dec 21-27 2025), 32,000 transactions, 591 blocks:
-
-| C_min | Blind Spam | HF Contention | Time |
-|-------|-----------|---------------|------|
-| 3 | 2,044 tx (6.4%) | 29,956 tx (93.6%) | 81ms |
-| 5 | 2,880 tx (9.0%) | 29,120 tx (91.0%) | 108ms |
-| 10 | 9,640 tx (30.1%) | 22,360 tx (69.9%) | 86ms |
-
-One bot (`0x837b57a93d...`) accounts for the entire top 10 with 80-81 transactions per block.
+Author: Keneth Issac Huerta Galindo, Escuela Superior de Computo (ESCOM), Instituto Politecnico
+Nacional. ORCID [0009-0004-9084-2937](https://orcid.org/0009-0004-9084-2937).

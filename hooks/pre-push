@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Pre-push: corre el escaneo de fugas sobre el arbol que se sube y sobre los mensajes de los commits nuevos.
+# No se instala solo. Instalar con:  cp hooks/pre-push .git/hooks/pre-push && chmod +x .git/hooks/pre-push
+# El escaneo vive en el repo privado (su lista de patrones no debe publicarse). Falla cerrado: si no lo
+# encuentra, el push se bloquea. Otra ruta: ESCANEO_FUGAS=/ruta/escaneo_fugas.sh git push
+set -u
+RAIZ="$(git rev-parse --show-toplevel)"
+ESCANEO="${ESCANEO_FUGAS:-$RAIZ/../mev-revert-classifier/scripts/publicacion/escaneo_fugas.sh}"
+if [ ! -x "$ESCANEO" ]; then
+  echo "pre-push: no encuentro el escaneo de fugas ($ESCANEO); push bloqueado" >&2
+  exit 1
+fi
+CERO="0000000000000000000000000000000000000000"
+TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+mkdir -p "$TMP/arbol" "$TMP/mensajes"
+
+while read -r _ local_sha _ remote_sha; do
+  [ "$local_sha" = "$CERO" ] && continue
+  # 1) arbol del commit que se sube
+  rm -rf "$TMP/arbol"; mkdir -p "$TMP/arbol"
+  git -C "$RAIZ" archive "$local_sha" | tar -x -C "$TMP/arbol"
+  if ! "$ESCANEO" "$TMP/arbol"; then
+    echo "pre-push: fugas en el arbol de $local_sha; push bloqueado" >&2
+    exit 1
+  fi
+  # 2) mensajes de los commits nuevos (el historial ya publicado no se reescribe)
+  if [ "$remote_sha" = "$CERO" ]; then rango="$local_sha"; else rango="$remote_sha..$local_sha"; fi
+  git -C "$RAIZ" log --format='%H%n%B%n--' "$rango" > "$TMP/mensajes/mensajes.txt"
+  if ! "$ESCANEO" "$TMP/mensajes" --sin-complemento; then
+    echo "pre-push: fugas o trailer de IA en un mensaje de commit; push bloqueado" >&2
+    exit 1
+  fi
+done
+exit 0
