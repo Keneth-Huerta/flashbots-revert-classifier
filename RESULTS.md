@@ -76,6 +76,13 @@ at least 0.02 with an interval excluding 0). Without controlling for entity the 
 0.02 threshold, so the claim does not extend to probes. The author did not run a sensitivity that
 excludes senders with 10 or more bot contracts for this study.
 
+The preregistered sensitivity that reruns the Study 1 overlap on the Study 2 anchors (`contend`,
+3 anchors per hour instead of 6) gives an excess E between 0.013 and 0.136 by week (mean 0.061),
+below 0.05 in 26 of 48 weeks. The mean is 0.030 over the first 24 sampled weeks and 0.092 over the
+last 24, while the weekly risk difference above moves the other way (mean 0.115 against 0.062; weekly
+correlation r = -0.38). The two studies agree in sign, not in time trend, and the trend was not
+modelled. E shrinks with fewer blocks per hour, so these values are not comparable to Study 1's.
+
 **H2, block synchrony bound.** Overlap in the anchor block against the block 2 s later, 30 s later
 and 5 min later, same anchors.
 
@@ -146,7 +153,9 @@ no race; any cause (Flashblocks, fees, chain design); any operator identificatio
 
 ## Cross-checks
 
-For each study the same author reimplemented the Rust estimators in Python and ran them on the
-same rows (`scripts/analisis/`). Point estimates agree to the printed decimals; confidence intervals
-and p-values differ only through the Monte Carlo generator. This is not an independent
-reproduction.
+For Study 1 the Python check reproduces the bot and entity universe, the observed overlap, the exact
+mean of the null, and the excess E (for example 0.0512, 0.1458, 0.1056 and 0.1337 against 0.0510,
+0.1460, 0.1060 and 0.1340 from the Rust null). For Studies 2 and 3 it reproduces the per-week
+estimates and the neighbour curve. Intervals, p-values, pooled estimates and sensitivity tables
+come from the Rust implementation only. The same author wrote both on the same rows
+(`scripts/analisis/`); this is not an independent reproduction.
