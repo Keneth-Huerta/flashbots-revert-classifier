@@ -10,28 +10,28 @@ the preregistrations and the sealed hashes of three studies:
 | AF-02 | Inside a block, is the revert rate higher after a successful swap by another entity on the same pools? How much of the overlap is block-level synchrony? | Base | 48 weeks of 2025, 504 anchor blocks per week |
 | AF-03 | Same two tests as AF-02 | Unichain, OP Mainnet | 12 weeks of 2025 per chain |
 
-Results are in [RESULTS.md](RESULTS.md). Short version: the overlap that v0.1.0 of this tool called
-"contention" is mostly one bot repeating itself, and the measurable evidence of a race inside the
-block is much smaller. AF-03 did not reach a decision on the race test in either chain.
+[RESULTS.md](RESULTS.md) has the results. In brief: most of the overlap that v0.1.0 of this tool
+called "contention" is one bot repeating itself, and the measurable evidence of a race inside the
+block is much smaller. AF-03 reached no decision on the race test in either chain.
 
 ## Definitions used here
 
 - **Probe** (`dry_run_probe` in the Dune query): a *successful* transaction that emits no external
   logs and carries at most 1 wei. It read state and stopped without swapping.
 - **Revert**: a transaction that reverted during execution.
-- **Entity**: bot contracts that share a sender are merged. It approximates an operator and is a
-  stated limitation, not an identification of anyone.
+- **Entity**: the set of bot contracts that share a sender. It approximates an operator. The merge
+  is a stated limitation and identifies no one.
 
 ## What this does not measure
 
-Counting attempts per bot and block measures how often *one* bot repeats itself. Version 0.1.0
-called dense groups "HF Contention" and a ~90% figure was quoted on the Flashblocks forum thread
-that started this work. That label was wrong. `REPORT.md` of v0.1.0 is removed from the tree (it
-stays in the git history) and superseded by [RESULTS.md](RESULTS.md).
+Counting attempts per bot and block tells you how often *one* bot repeats itself. Version 0.1.0
+labeled dense groups "HF Contention", and a ~90% figure from it was quoted on the Flashblocks forum
+thread that started this work. The label was wrong. The v0.1.0 `REPORT.md` is gone from the tree
+(git history keeps it), and [RESULTS.md](RESULTS.md) replaces it.
 
 ## Requirements
 
-- Rust stable (the published numbers were produced with rustc 1.99.1)
+- Rust stable (the author produced the published numbers with rustc 1.99.1)
 - Python 3 with `numpy` for `scripts/analisis/` (cross-checks of the Rust estimators)
 - To re-download chain data: an Alchemy API key with archive and `debug_traceBlockByNumber`
   access, exported as `ALCHEMY_API_KEY` (or in a `.env` file, which is git-ignored)
@@ -56,15 +56,14 @@ query 7809756) used in the first report: 591 consecutive Base blocks, about 20 m
 
 ## Reproducing the studies
 
-The raw chain captures (traces and receipts, many GB) are **not** in the repository. They are
-re-downloaded from an archive RPC. The block samples are deterministic and are committed in
-`datos/`; their sha256 are in the `*-sello-*.sha256` files under
-`docs/04_investigacion_y_labs/`. Cost on Alchemy pay-as-you-go: about US$0.9 for AF-03; AF-02
+The repository does **not** include the raw chain captures (traces and receipts, many GB). You
+re-download them from an archive RPC. The block samples are deterministic and live in `datos/`;
+the `*-sello-*.sha256` files under `docs/04_investigacion_y_labs/` hold their sha256. Cost on Alchemy pay-as-you-go: about US$0.9 for AF-03; AF-02
 needs a few dollars.
 
-Every confirmatory step checks a seal file (`sha256sum` format) before opening blocks. The
-preregistrations and block samples are byte-identical to what was sealed, so the gate passes
-with `--post-seal`, which tolerates changes to the other sealed files (see the note at the end of this section).
+Each confirmatory step checks a seal file (`sha256sum` format) before it opens any block. The
+preregistrations and block samples match the sealed bytes, so the gate passes with `--post-seal`,
+which tolerates changes to the other sealed files (see "About the seals" at the end of this section).
 
 Set `B=target/release/mev-revert-classifier` and run from the repository root.
 
@@ -97,10 +96,10 @@ python3 scripts/analisis/vecino.py --help              # Python cross-check of `
 
 ### AF-03 (Unichain and OP Mainnet, 12 weeks each)
 
-Preregistered and deposited on Zenodo before any block of the drawn weeks was downloaded:
-**DOI [10.5281/zenodo.23457231](https://doi.org/10.5281/zenodo.23457231)**. The sealed hash list
-`2026-10-18-sello-af03.sha256` has an OpenTimestamps proof (`.ots`) next to it, and so does the
-preregistration.
+The author preregistered this study and deposited it on Zenodo before downloading any block of the
+drawn weeks: **DOI [10.5281/zenodo.23457231](https://doi.org/10.5281/zenodo.23457231)**. The sealed
+hash list `2026-10-18-sello-af03.sha256` and the preregistration each have an OpenTimestamps proof
+(`.ots`) next to them.
 
 ```bash
 S=docs/04_investigacion_y_labs/2026-10-18-sello-af03.sha256
@@ -118,23 +117,24 @@ done
 scripts/analisis/sens_af03.sh unichain                    # preregistered sensitivities
 ```
 
-`scripts/ingesta/descarga_af03.sh` runs the download loop for both chains. System and builder
-transactions are excluded by the list `datos/tx_sistema.csv`.
+`scripts/ingesta/descarga_af03.sh` runs the download loop for both chains. The list
+`datos/tx_sistema.csv` excludes system and builder transactions.
 
 ### About the seals
 
 The OpenTimestamps proofs and the Zenodo record fix the AF-03 preregistration and the hash list
-as they were on 2026-10-18. The seal files also list internal design notes that are **not published**: ADR 005 in the AF-03
+as they were on 2026-10-18. The seal files also list internal design notes that this repository does **not publish**: ADR 005 in the AF-03
 seal (sha256 `5bae3de071a35a87b26726f385f1a43443648bb9bd3ce97102e3997b95538498`), ADR 004 in the AF-02
 seal (`1c30c82edeff4bc382ae4c3c85ee7c8898744decb7165d05c9a71f1583d61d48`), and ADR 002 and 003 in the
 AF-01 seal (`79790f6d3b3fffdabb2bfe24d9f05ecf08b28b7a1a2e851dc27c19af8db94168`,
-`901720ee72659e9a95630061cb6880e2f4a3282eead448182ac3937de2774ac4`). Every other file of the AF-03
-seal is here byte for byte, so `sha256sum -c` on it gives 29 OK and 1 missing (ADR 005); the
-missing line is the only expected failure.
-The AF-01 and AF-02 seals list code that changed afterwards through declared post-seal deviations,
-so `sha256sum -c` reports those files as changed, plus the unpublished notes as missing. Their
-preregistrations and block samples are intact, which is what `--post-seal` checks (it tolerates
-missing non-preregistration files).
+`901720ee72659e9a95630061cb6880e2f4a3282eead448182ac3937de2774ac4`). This repository has every
+other file of the AF-03 seal byte for byte, so `sha256sum -c` on it reports 29 OK and 1 missing
+(ADR 005), and that missing line is the only expected failure.
+
+The code listed in the AF-01 and AF-02 seals changed afterwards through declared post-seal
+deviations, so `sha256sum -c` reports those files as changed and the unpublished notes as missing.
+Their preregistrations and block samples are intact, and those are what `--post-seal` checks (it
+tolerates missing non-preregistration files).
 
 ## Repository layout
 
@@ -151,9 +151,9 @@ docs/07_fundamentos_teoricos/   estimator derivations
 
 ## Limits
 
-Observational data. The order of transactions inside a block is set by arrival time and fee as
-well as by state, so a higher revert rate after another entity's swap is not proof of
-competition. Entities are inferred from shared senders. Sampled weeks are from 2025 only.
+The data are observational. Arrival time and fee set the order of transactions inside a block,
+along with state, so a higher revert rate after another entity's swap does not prove competition.
+The author infers entities from shared senders. All sampled weeks are from 2025.
 
 ## License and citation
 
