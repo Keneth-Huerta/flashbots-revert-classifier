@@ -113,18 +113,28 @@ chain. `datos/tx_sistema.csv` excludes system and builder transactions. The inte
 
 | Chain | n | Cells | Risk difference [95% CI] | Without entity control |
 |---|---:|---:|---|---|
-| Unichain | 10,378 | 31 | -0.0450 [-0.1175, +0.0184] | -0.5078 [-0.6132, -0.3424] |
-| OP Mainnet | 5,375 | 294 | +0.1390 [+0.0941, +0.1938] | -0.0211 [-0.0980, +0.0570] |
+| Unichain | 10,378 | 169 | -0.0791 [-0.1482, +0.0088] | -0.1193 [-0.2351, +0.0540] |
+| OP Mainnet | 5,375 | 301 | +0.1396 [+0.0986, +0.1887] | -0.0206 [-0.0921, +0.0509] |
 
-Decision: **inconclusive in both chains** (31 and 294 cells, below 1,000). The OP estimate is
+Decision: **inconclusive in both chains** (169 and 301 cells, below 1,000). The OP estimate is
 positive in 12 of 12 weeks; this report gives it as an observation and does not count it as an
 affirmed result. In
-Unichain, 9,246 of 10,378 transactions in the test universe are reverts, but only 65 follow a
-successful swap by another entity on their pools, so there is nothing to compare. One contract
+Unichain, 9,246 of 10,378 transactions in the test universe are reverts, and 761 of them (7.3%)
+follow a successful swap by another entity on their pools; in OP the share is 865 of 5,375
+(16.1%). That leaves 169 cells with both groups, far from 1,000. One contract
 receives 80.3% of those reverts. The preregistration has two rules that could both apply to the
 Unichain interval (upper limit below 0.02, and fewer than 1,000 cells) and does not say which comes
-first. The author took the reading that declares nothing and fixed that precedence after seeing
-the results.
+first. The upper limit is +0.0088, below 0.02, so the falsification rule would apply on its own. The
+author took the reading that declares nothing and fixed that precedence after seeing the results.
+Three sensitivities that do not decide put the upper limit at -0.0092 (50 position bins), -0.0425
+(hour bootstrap) and +0.0725 (cells by entity and block). The lack of a decision rests on the cell
+count, which is the preregistered rule.
+
+*Correction, 2026-10-20.* An earlier version of this file reported 31 cells and only 65 Unichain
+transactions after another entity's swap (OP: 294 cells, risk difference +0.1390 [+0.0941, +0.1938]).
+The analysis code did not read Uniswap v4 swaps as pools, so it missed most prior swaps. The
+definition of the test did not change. The tables above use the corrected code on the same rows;
+the decisions are the same, and H2 is unaffected.
 
 **H2, synchrony bound.**
 
@@ -142,8 +152,8 @@ pseudo-pools it falls to +0.0104 [-0.0008, +0.0195].
 | Chain | Weeks | Risk difference without probes | Cells | U_2s |
 |---|---:|---|---:|---|
 | Base (AF-02) | 48 | +0.0775 [+0.0656, +0.0928] | 8,635 | +0.0129 [+0.0113, +0.0144] |
-| OP Mainnet (AF-03) | 12 | +0.1390 [+0.0941, +0.1938] | 294 | +0.0258 [+0.0167, +0.0353] |
-| Unichain (AF-03) | 12 | -0.0450 [-0.1175, +0.0184] | 31 | +0.0796 [+0.0561, +0.0933] |
+| OP Mainnet (AF-03) | 12 | +0.1396 [+0.0986, +0.1887] | 301 | +0.0258 [+0.0167, +0.0353] |
+| Unichain (AF-03) | 12 | -0.0791 [-0.1482, +0.0088] | 169 | +0.0796 [+0.0561, +0.0933] |
 
 Base used AF-02's rule (no system-transaction exclusion, no v4 pseudo-pools), so the comparison
 is not like for like. The author did not run the sensitivity that reruns Base with AF-03's rule.
