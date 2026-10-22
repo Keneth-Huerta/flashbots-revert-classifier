@@ -187,15 +187,6 @@ Traces (`debug_traceBlockByNumber` with `callTracer`) and block receipts come fr
 archive RPC for Base, Unichain and OP Mainnet. `dataset.csv` comes from Dune (query 7843588, a fork
 of Fei Wu and Burak Oz's query 7809756). The rows on Zenodo were extracted from those captures.
 
-## AI use
-
-The author posed the research question, directed the design of the four studies, approved their
-preregistrations before any data were seen, and decided which analyses and claims are reported.
-Claude (Anthropic) was used extensively, under the author's direction, to write code, run analyses
-and draft text. The author checked the outputs against the raw data and is responsible for the
-content. The Python cross-checks share the author and the rows with the Rust code, so they are not
-an independent reproduction.
-
 ## License and citation
 
 MIT, see [LICENSE](LICENSE); the Zenodo dataset is CC BY 4.0. To cite the software, the dataset or
