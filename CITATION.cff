@@ -9,8 +9,8 @@ authors:
     affiliation: "Escuela Superior de Computo (ESCOM), Instituto Politecnico Nacional (IPN)"
 repository-code: "https://github.com/Keneth-Huerta/flashbots-revert-classifier"
 license: MIT
-version: 0.7.0
-date-released: "2026-10-18"
+version: 1.0.0
+date-released: "2026-10-21"
 references:
   - type: report
     title: "Preregistro de AF-03: carrera dentro del bloque y cota de sincronia en Unichain y OP Mainnet"
@@ -22,3 +22,23 @@ references:
     year: 2026
     url: "https://zenodo.org/records/23457231"
     notes: "Preregistration of AF-03, deposited before any data of the drawn weeks was downloaded."
+  - type: report
+    title: "Preregistration: robustness of the in-block race test for failed arbitrage transactions on Base"
+    authors:
+      - family-names: "Huerta Galindo"
+        given-names: "Keneth Issac"
+        orcid: "https://orcid.org/0009-0004-9084-2937"
+    doi: "10.5281/zenodo.23492680"
+    year: 2026
+    url: "https://zenodo.org/records/23492680"
+    notes: "Preregistration of AF-04, deposited before any data of the new weeks was downloaded."
+  - type: data
+    title: "Extracted transaction rows for \"Failed Arbitrage Attempts on Base: Bot Competition or Isolated Search?\""
+    authors:
+      - family-names: "Huerta Galindo"
+        given-names: "Keneth Issac"
+        orcid: "https://orcid.org/0009-0004-9084-2937"
+    doi: "10.5281/zenodo.23549452"
+    year: 2026
+    url: "https://zenodo.org/records/23549452"
+    license: CC-BY-4.0

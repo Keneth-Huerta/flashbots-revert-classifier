@@ -117,7 +117,7 @@ fn seeded_synchrony_is_detected() {
 
 #[test]
 fn always_present_bots_with_fixed_pools_carry_no_signal() {
-    // Documented limit (theory note §5): permuting a bot that is in every block with the
+    // Documented limit (fundamento §5): permuting a bot that is in every block with the
     // same pools changes nothing, so its overlap cannot be told apart from chance.
     let blocks: Vec<u64> = hours_of_blocks(6, 6).concat();
     let rows: Vec<TxRow> = blocks

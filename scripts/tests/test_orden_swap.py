@@ -31,6 +31,20 @@ class Receipts(unittest.TestCase):
         self.assertEqual(osw.swaps_por_tx(rc), {"0xaa": frozenset({"0xp1"})})
 
 
+class ReceiptsV4(unittest.TestCase):
+    """Regresion: el Swap del PoolManager v4 debe dar el pseudo-pool v4:<PoolId>."""
+
+    PM = "0x1f98400000000000000000000000000000000004"
+
+    def test_pseudo_pool_con_pool_manager(self):
+        rc = [{"status": "0x1", "transactionHash": "0xaa",
+               "logs": [{"address": self.PM.upper().replace("0X", "0x"), "topics": [SW, "0xABC"]},
+                        {"address": "0xP1", "topics": [SW]}]}]
+        self.assertEqual(osw.swaps_por_tx(rc, self.PM)["0xaa"], frozenset({"v4:0xabc", "0xp1"}))
+        # sin la opcion (comportamiento sellado de AF-01/AF-02): la direccion del PoolManager
+        self.assertEqual(osw.swaps_por_tx(rc)["0xaa"], frozenset({self.PM, "0xp1"}))
+
+
 class ACuenta(unittest.TestCase):
     def test_s_prev_a_mano(self):
         w = {"p1": 0.5, "p2": 0.5}

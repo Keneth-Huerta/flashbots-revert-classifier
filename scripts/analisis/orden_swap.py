@@ -38,8 +38,12 @@ TIPOS = ("revert", "probe", "todos")
 _COLS = {"revert": [0], "probe": [1], "todos": [0, 1]}
 
 
-def swaps_por_tx(receipts):
-    """tx_hash -> frozenset de pools con un log Swap en una tx exitosa (status 0x1)."""
+def swaps_por_tx(receipts, pool_manager=None):
+    """tx_hash -> frozenset de pools con un log Swap en una tx exitosa (status 0x1).
+
+    Con `pool_manager` (direccion en minusculas del singleton de Uniswap v4), un log Swap de
+    ese contrato aporta el pseudo-pool `v4:<PoolId>` (topics[1]), como lo escribe el
+    extractor con `--v4-pools`, y no la direccion del PoolManager."""
     out = {}
     for rc in receipts:
         if str(rc.get("status", "")).lower() not in ("0x1", "0x01", "1"):
@@ -48,7 +52,12 @@ def swaps_por_tx(receipts):
         for log in rc.get("logs", []):
             topics = log.get("topics") or []
             if topics and topics[0].lower() in cc.SWAP_TOPICS:
-                s.add(log["address"].lower())
+                a = log["address"].lower()
+                if pool_manager and a == pool_manager:
+                    if len(topics) > 1:
+                        s.add("v4:" + topics[1].lower())
+                else:
+                    s.add(a)
         if s:
             out[rc["transactionHash"].lower()] = frozenset(s)
     return out

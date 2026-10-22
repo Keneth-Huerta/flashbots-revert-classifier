@@ -7,7 +7,7 @@ fn nested(depth: usize) -> String {
 #[test]
 fn parses_json_nested_ten_thousand_levels() {
     let text = nested(10_000);
-    // The stock parser stops at 128 levels.
+    // The stock parser stops at 128 levels (EXPL-14).
     assert!(serde_json::from_str::<serde_json::Value>(&text).is_err());
     // Deep values also drop recursively, so run on a roomy stack like the fetch workers.
     std::thread::Builder::new()

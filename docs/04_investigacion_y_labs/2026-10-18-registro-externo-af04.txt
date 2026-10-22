@@ -1,0 +1,6 @@
+Registro externo del preregistro de AF-04
+DOI: 10.5281/zenodo.23492680
+URL: https://doi.org/10.5281/zenodo.23492680
+Publicado: 2026-10-20T07:29:22Z
+sha256 del preregistro: aaa404a1311b3efaec1fd89628f3621f3a38867428c45d581ec47ef6f4438e38
+Tag del sello: AF-04-sellado

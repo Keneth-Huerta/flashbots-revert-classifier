@@ -19,6 +19,7 @@ use serde_json::Value;
 
 use crate::contend::Rng;
 use crate::extract::{Kind, TxRow, SWAP_TOPICS};
+use crate::placebo::{ext_pass, EmptyTx, Ext, ExtOpts, TxExt};
 use crate::sample::{block_timestamp_on, Timing, BASE_TIMING};
 use crate::system::SystemFilter;
 
@@ -114,7 +115,7 @@ pub fn interval(mut v: Vec<f64>) -> (f64, f64) {
     (percentile_lin(&v, 2.5), percentile_lin(&v, 97.5))
 }
 
-fn stream(seed: u64, tags: &[u64]) -> Rng {
+pub(crate) fn stream(seed: u64, tags: &[u64]) -> Rng {
     let mut st = seed;
     for &t in tags {
         st = Rng::new(st ^ t.wrapping_mul(GAMMA)).next_u64();
@@ -128,7 +129,7 @@ fn uniform(r: &mut Rng) -> f64 {
 
 /// Evaluates `job(i)` for `i in 0..n` on all cores; every job seeds its own RNG, so the
 /// result does not depend on scheduling.
-fn par_map<R: Send, J: Fn(usize) -> R + Sync>(n: usize, job: J) -> Vec<R> {
+pub(crate) fn par_map<R: Send, J: Fn(usize) -> R + Sync>(n: usize, job: J) -> Vec<R> {
     let threads = std::thread::available_parallelism()
         .map_or(1, |t| t.get())
         .min(n.max(1));
@@ -158,7 +159,7 @@ fn par_map<R: Send, J: Fn(usize) -> R + Sync>(n: usize, job: J) -> Vec<R> {
 }
 
 /// (sum of w_c d_c, sum of w_c) over cells `[n1, r1, n0, r0]` with both groups.
-fn mh_sums(cells: &[[f64; 4]]) -> (f64, f64) {
+pub(crate) fn mh_sums(cells: &[[f64; 4]]) -> (f64, f64) {
     let (mut num, mut den) = (0.0, 0.0);
     for &[n1, r1, n0, r0] in cells {
         if n1 > 0.0 && n0 > 0.0 {
@@ -170,7 +171,7 @@ fn mh_sums(cells: &[[f64; 4]]) -> (f64, f64) {
     (num, den)
 }
 
-fn ratio(num: f64, den: f64) -> f64 {
+pub(crate) fn ratio(num: f64, den: f64) -> f64 {
     if den > 0.0 {
         num / den
     } else {
@@ -179,7 +180,7 @@ fn ratio(num: f64, den: f64) -> f64 {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum Spec {
+pub(crate) enum Spec {
     /// (entity, bin) or (entity, block).
     Cond,
     /// Bin only.
@@ -188,16 +189,16 @@ enum Spec {
 
 /// Cells with both groups, pruned (a cell with one group never contributes, in any
 /// resample or permutation of X within cells).
-struct Prepared {
+pub(crate) struct Prepared {
     /// Totals `[n1, r1, n0, r0]` per cell.
-    tot: Vec<[f64; 4]>,
+    pub(crate) tot: Vec<[f64; 4]>,
     /// Per hour, the `(cell, [n1, r1, n0, r0])` entries.
-    by_hour: Vec<Vec<(u32, [f64; 4])>>,
-    num: f64,
-    den: f64,
+    pub(crate) by_hour: Vec<Vec<(u32, [f64; 4])>>,
+    pub(crate) num: f64,
+    pub(crate) den: f64,
 }
 
-fn prepare(txs: &[&Tx], n_hours: usize, spec: Spec, p: &RaceParams) -> Prepared {
+pub(crate) fn prepare(txs: &[&Tx], n_hours: usize, spec: Spec, p: &RaceParams) -> Prepared {
     let mut ids: HashMap<(u32, u64), usize> = HashMap::new();
     let mut tot: Vec<[f64; 4]> = Vec::new();
     let mut cell_of = Vec::with_capacity(txs.len());
@@ -255,7 +256,7 @@ fn prepare(txs: &[&Tx], n_hours: usize, spec: Spec, p: &RaceParams) -> Prepared 
 
 impl Prepared {
     /// `(num, den)` of one resample given the multiplicity of every hour.
-    fn resample(&self, mult: &[u32]) -> (f64, f64) {
+    pub(crate) fn resample(&self, mult: &[u32]) -> (f64, f64) {
         let mut acc = vec![[0.0; 4]; self.tot.len()];
         for (h, &m) in mult.iter().enumerate() {
             if m == 0 {
@@ -296,7 +297,7 @@ impl Prepared {
     }
 }
 
-fn multiplicities(n: usize, rng: &mut Rng) -> Vec<u32> {
+pub(crate) fn multiplicities(n: usize, rng: &mut Rng) -> Vec<u32> {
     let mut m = vec![0u32; n];
     for _ in 0..n {
         m[rng.below(n)] += 1;
@@ -505,8 +506,35 @@ pub fn format_line(variant: &str, l: &RaceLine) -> String {
 
 /// Pools with a Swap log in the successful receipts of a block: tx hash -> pools.
 pub fn swaps_by_tx(receipts: &Value) -> HashMap<String, HashSet<String>> {
-    let mut out = HashMap::new();
-    for rc in receipts.as_array().into_iter().flatten() {
+    swaps_by_tx_with(receipts, None)
+}
+
+/// Like [`swaps_by_tx`]. With `pool_manager` (Uniswap v4 singleton), a Swap log of the
+/// PoolManager contributes the pseudo-pool `v4:<PoolId>` (`topics[1]`, as the extractor
+/// writes it with `--v4-pools`) instead of the PoolManager address.
+pub fn swaps_by_tx_with(
+    receipts: &Value,
+    pool_manager: Option<&str>,
+) -> HashMap<String, HashSet<String>> {
+    swaps_full(receipts, pool_manager)
+        .into_iter()
+        .map(|s| (s.hash, s.pools))
+        .collect()
+}
+
+/// A successful transaction with at least one Swap log.
+#[derive(Debug, Clone)]
+pub struct SwapTx {
+    pub idx: u64,
+    pub hash: String,
+    pub from: String,
+    pub pools: HashSet<String>,
+}
+
+/// Successful transactions with Swap logs of a block's receipts, in receipt order.
+pub fn swaps_full(receipts: &Value, pool_manager: Option<&str>) -> Vec<SwapTx> {
+    let mut out = Vec::new();
+    for (pos, rc) in receipts.as_array().into_iter().flatten().enumerate() {
         let status = rc
             .get("status")
             .and_then(Value::as_str)
@@ -530,7 +558,18 @@ pub fn swaps_by_tx(receipts: &Value) -> HashMap<String, HashSet<String>> {
                 .to_ascii_lowercase();
             if SWAP_TOPICS.contains(&topic0.as_str()) {
                 if let Some(a) = log.get("address").and_then(Value::as_str) {
-                    pools.insert(a.to_ascii_lowercase());
+                    let a = a.to_ascii_lowercase();
+                    if pool_manager == Some(a.as_str()) {
+                        if let Some(id) = log
+                            .get("topics")
+                            .and_then(|t| t.get(1))
+                            .and_then(Value::as_str)
+                        {
+                            pools.insert(format!("v4:{}", id.to_ascii_lowercase()));
+                        }
+                    } else {
+                        pools.insert(a);
+                    }
                 }
             }
         }
@@ -538,7 +577,21 @@ pub fn swaps_by_tx(receipts: &Value) -> HashMap<String, HashSet<String>> {
             continue;
         }
         if let Some(h) = rc.get("transactionHash").and_then(Value::as_str) {
-            out.insert(h.to_ascii_lowercase(), pools);
+            let idx = rc
+                .get("transactionIndex")
+                .and_then(Value::as_str)
+                .and_then(|x| u64::from_str_radix(x.trim_start_matches("0x"), 16).ok())
+                .unwrap_or(pos as u64);
+            out.push(SwapTx {
+                idx,
+                hash: h.to_ascii_lowercase(),
+                from: rc
+                    .get("from")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_ascii_lowercase(),
+                pools,
+            });
         }
     }
     out
@@ -552,6 +605,10 @@ pub fn raw_path(dir: &Path, block: u64, kind: &str) -> std::path::PathBuf {
 /// (AF-02 keeps receipts locally and moves traces to DVC; post-seal deviation).
 pub fn has_raw(dir: &Path, block: u64) -> bool {
     raw_path(dir, block, "receipts").is_file()
+}
+
+pub fn read_receipts_pub(dir: &Path, block: u64) -> Result<Value> {
+    read_receipts(dir, block)
 }
 
 fn read_receipts(dir: &Path, block: u64) -> Result<Value> {
@@ -627,6 +684,24 @@ pub fn build_stratum_with(
     bins: usize,
     opts: &StratumOpts,
 ) -> Result<(StratumData, Vec<u64>)> {
+    let (d, _, missing) =
+        build_stratum_ext(name, all, blocks, raw_dir, bins, opts, &ExtOpts::default())?;
+    Ok((d, missing))
+}
+
+/// [`build_stratum_with`] under [`ExtOpts`] (AF-04). With `ExtOpts::default()` the
+/// [`StratumData`] is the one of `build_stratum_with` and the extension is `None`; with
+/// `want_ext` the extension carries, aligned with `txs`, the alternative exposures
+/// of the placebo tests, the transactions with empty `P` and the entity keys.
+pub fn build_stratum_ext(
+    name: &str,
+    all: &[TxRow],
+    blocks: &[u64],
+    raw_dir: &Path,
+    bins: usize,
+    opts: &StratumOpts,
+    eo: &ExtOpts,
+) -> Result<(StratumData, Option<Ext>, Vec<u64>)> {
     let filtered: Vec<TxRow>;
     let mine: &[TxRow] = match opts.system {
         Some(f) => {
@@ -635,7 +710,12 @@ pub fn build_stratum_with(
         }
         None => all,
     };
-    let rule = crate::contend::BotRule::default();
+    let rule = crate::contend::BotRule {
+        min_failed_share: eo
+            .bot_share
+            .unwrap_or(crate::contend::BotRule::default().min_failed_share),
+        ..crate::contend::BotRule::default()
+    };
     let bots = crate::contend::bot_universe(mine, &rule);
     let entity_of = crate::contend::entities_with(
         mine,
@@ -669,6 +749,14 @@ pub fn build_stratum_with(
             by_block.entry(r.block).or_default().push(r);
         }
     }
+    let mut pre = if eo.want_ext {
+        Some(ext_pass(
+            mine, &bots, &entity_of, &have, raw_dir, &size, eo,
+        )?)
+    } else {
+        None
+    };
+    let mut per_tx: Vec<TxExt> = Vec::new();
     let mut ent_id: HashMap<&str, u32> = HashMap::new();
     let mut hour_id: HashMap<i64, u32> = HashMap::new();
     let mut txs = Vec::new();
@@ -679,7 +767,7 @@ pub fn build_stratum_with(
             .or_insert(next);
         list.sort_by_key(|r| r.tx_index);
         let swaps = if list.iter().any(|r| r.kind == Kind::Success) {
-            swaps_by_tx(&read_receipts(raw_dir, b)?)
+            swaps_by_tx_with(&read_receipts(raw_dir, b)?, eo.v4_pool_manager)
         } else {
             HashMap::new()
         };
@@ -722,8 +810,51 @@ pub fn build_stratum_with(
                 y: r.kind == Kind::Revert,
                 probe: r.kind == Kind::Probe,
             });
+            if let Some(p) = pre.as_mut() {
+                per_tx.push(
+                    p.by_hash
+                        .remove(&r.tx_hash.to_ascii_lowercase())
+                        .unwrap_or_default(),
+                );
+            }
         }
     }
+    let ext = match pre {
+        Some(p) => {
+            let mut empty = Vec::new();
+            for e in &p.empties {
+                let next = ent_id.len() as u32;
+                let ent = *ent_id.entry(entity_of[&e.to].as_str()).or_insert(next);
+                let next = hour_id.len() as u32;
+                let hour = *hour_id
+                    .entry(block_timestamp_on(opts.timing, e.block) / 3600)
+                    .or_insert(next);
+                let q = e.tx_index as f64 / size[&e.block] as f64 * bins as f64;
+                empty.push(EmptyTx {
+                    tx: Tx {
+                        ent,
+                        bin: (q as usize).min(bins - 1) as u32,
+                        block: e.block,
+                        hour,
+                        x: false,
+                        y: e.revert,
+                        probe: e.probe,
+                    },
+                    x_c: e.x_c,
+                });
+            }
+            let mut ent_keys = vec![String::new(); ent_id.len()];
+            for (label, &id) in &ent_id {
+                ent_keys[id as usize] = p.key_of.get(*label).cloned().unwrap_or_default();
+            }
+            Some(Ext {
+                per_tx,
+                empty,
+                ent_keys,
+            })
+        }
+        None => None,
+    };
     missing.sort_unstable();
     Ok((
         StratumData {
@@ -731,6 +862,7 @@ pub fn build_stratum_with(
             txs,
             n_hours: hour_id.len(),
         },
+        ext,
         missing,
     ))
 }

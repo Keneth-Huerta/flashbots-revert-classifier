@@ -2,17 +2,19 @@
 
 Rust CLI and analysis scripts for studying **failed arbitrage attempts** (probes and reverts) on
 OP-stack chains: Base, Unichain and OP Mainnet. The repository holds the code, the block samples,
-the preregistrations and the sealed hashes of three studies:
+the preregistrations and the sealed hashes of four studies:
 
 | Study | Question | Chain | Sample |
 |---|---|---|---|
 | AF-01 | Do failed attempts of different entities share more pools in the same block than a within-hour permutation null? | Base | 4 weeks of 2025, about 800 blocks per week |
 | AF-02 | Inside a block, is the revert rate higher after a successful swap by another entity on the same pools? How much of the overlap is block-level synchrony? | Base | 48 weeks of 2025, 504 anchor blocks per week |
 | AF-03 | Same two tests as AF-02 | Unichain, OP Mainnet | 12 weeks of 2025 per chain |
+| AF-04 | Does the AF-02 race replicate on weeks not seen before, and does it survive temporal and pool placebos and changes to the bot, entity and pool definitions? | Base | 24 weeks of 2024 and 24 of 2026, 504 anchor blocks per week; reruns on the AF-02 weeks |
 
 [RESULTS.md](RESULTS.md) has the results. In brief: most of the overlap that v0.1.0 of this tool
 called "contention" is one bot repeating itself, and the measurable evidence of a race inside the
-block is much smaller. AF-03 reached no decision on the race test in either chain.
+block is much smaller. AF-03 reached no decision on the race test in either chain. AF-04 finds the race
+again in 2024 and 2026, with a joint reading of the placebos that is inconclusive.
 
 ## Definitions used here
 
@@ -57,7 +59,10 @@ query 7809756) used in the first report: 591 consecutive Base blocks, about 20 m
 ## Reproducing the studies
 
 The repository does **not** include the raw chain captures (traces and receipts, many GB). You
-re-download them from an archive RPC. The block samples are deterministic and live in `datos/`;
+re-download them from an archive RPC. The extracted rows of the four studies, with the sha256 of every
+raw capture, are on Zenodo: **DOI [10.5281/zenodo.23549452](https://doi.org/10.5281/zenodo.23549452)**.
+With them you can skip `fetch` for the counting analyses; `race` and `neighbor` still need the receipts.
+The block samples are deterministic and live in `datos/`;
 the `*-sello-*.sha256` files under `docs/04_investigacion_y_labs/` hold their sha256. Cost on Alchemy pay-as-you-go: about US$0.9 for AF-03; AF-02
 needs a few dollars.
 
@@ -120,6 +125,22 @@ scripts/analisis/sens_af03.sh unichain                    # preregistered sensit
 `scripts/ingesta/descarga_af03.sh` runs the download loop for both chains. The list
 `datos/tx_sistema.csv` excludes system and builder transactions.
 
+### AF-04 (Base, 48 new weeks and the AF-02 weeks)
+
+Preregistration on Zenodo before the download:
+**DOI [10.5281/zenodo.23492680](https://doi.org/10.5281/zenodo.23492680)**, with OpenTimestamps
+proofs next to the preregistration and to `2026-10-18-sello-af04.sha256`.
+
+```bash
+scripts/ingesta/descarga_af04.sh              # 48 new weeks, anchors only, one week at a time
+bash scripts/analisis/correr_af04_frescas.sh  # T0 to T7, T9 and S-v4 on the new weeks
+bash scripts/analisis/correr_af04_vistas.sh   # T6 to T9 and the concordance runs on the AF-02 weeks
+bash scripts/analisis/correr_af04_vistas.sh T10
+```
+
+The scripts chain the commands of the preregistration and save each output under `artefactos/af04/`. The AF-02 runs need the AF-02 rows
+and receipts in `artefactos/af02/` and `artefactos/rpc_af02/`; T10 also needs the AF-02 traces.
+
 ### About the seals
 
 The OpenTimestamps proofs and the Zenodo record fix the AF-03 preregistration and the hash list
@@ -127,11 +148,15 @@ as they were on 2026-10-18. The seal files also list internal design notes that 
 seal (sha256 `5bae3de071a35a87b26726f385f1a43443648bb9bd3ce97102e3997b95538498`), ADR 004 in the AF-02
 seal (`1c30c82edeff4bc382ae4c3c85ee7c8898744decb7165d05c9a71f1583d61d48`), and ADR 002 and 003 in the
 AF-01 seal (`79790f6d3b3fffdabb2bfe24d9f05ecf08b28b7a1a2e851dc27c19af8db94168`,
-`901720ee72659e9a95630061cb6880e2f4a3282eead448182ac3937de2774ac4`). This repository has every
-other file of the AF-03 seal byte for byte, so `sha256sum -c` on it reports 29 OK and 1 missing
-(ADR 005), and that missing line is the only expected failure.
+`901720ee72659e9a95630061cb6880e2f4a3282eead448182ac3937de2774ac4`). On this release,
+`sha256sum -c` on the AF-04 seal reports 45 OK and 1 missing, ADR 006
+(`e2fa50ad7adf34189be4570d0f014daab56d90d14a9db5b4e1fc664ef8ff1127`); that is the only expected
+failure. On the AF-03 seal it reports 22 OK, ADR 005 missing, and 7 code files changed (`Cargo.toml`,
+`Cargo.lock`, `src/lib.rs`, `src/main.rs`, `src/race.rs`, `scripts/analisis/carrera_tasa.py`,
+`scripts/analisis/orden_swap.py`): the CLI moved to v0.8.0 for AF-04 and the race code was fixed to read
+Uniswap v4 swaps as pools, a correction the results file reports for AF-03.
 
-The code listed in the AF-01 and AF-02 seals changed afterwards through declared post-seal
+The code listed in the AF-01, AF-02 and AF-03 seals changed afterwards through declared post-seal
 deviations, so `sha256sum -c` reports those files as changed and the unpublished notes as missing.
 Their preregistrations and block samples are intact, and those are what `--post-seal` checks (it
 tolerates missing non-preregistration files).
@@ -153,12 +178,28 @@ docs/07_fundamentos_teoricos/   estimator derivations
 
 The data are observational. Arrival time and fee set the order of transactions inside a block,
 along with state, so a higher revert rate after another entity's swap does not prove competition.
-The author infers entities from shared senders. All sampled weeks are from 2025.
+The author infers entities from shared senders. The sampled weeks are from 2025 (AF-01 to AF-03) and
+from 2024 and 2026 (AF-04).
+
+## Data sources
+
+Traces (`debug_traceBlockByNumber` with `callTracer`) and block receipts come from the Alchemy
+archive RPC for Base, Unichain and OP Mainnet. `dataset.csv` comes from Dune (query 7843588, a fork
+of Fei Wu and Burak Oz's query 7809756). The rows on Zenodo were extracted from those captures.
+
+## AI use
+
+The author posed the research question, directed the design of the four studies, approved their
+preregistrations before any data were seen, and decided which analyses and claims are reported.
+Claude (Anthropic) was used extensively, under the author's direction, to write code, run analyses
+and draft text. The author checked the outputs against the raw data and is responsible for the
+content. The Python cross-checks share the author and the rows with the Rust code, so they are not
+an independent reproduction.
 
 ## License and citation
 
-MIT, see [LICENSE](LICENSE). To cite the software or the AF-03 preregistration, use
-[CITATION.cff](CITATION.cff) (GitHub shows a "Cite this repository" button).
+MIT, see [LICENSE](LICENSE); the Zenodo dataset is CC BY 4.0. To cite the software, the dataset or
+the preregistrations, use [CITATION.cff](CITATION.cff) (GitHub shows a "Cite this repository" button).
 
 Author: Keneth Issac Huerta Galindo, Escuela Superior de Computo (ESCOM), Instituto Politecnico
 Nacional. ORCID [0009-0004-9084-2937](https://orcid.org/0009-0004-9084-2937).

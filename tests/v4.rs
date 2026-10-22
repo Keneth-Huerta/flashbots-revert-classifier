@@ -1,5 +1,5 @@
 //! Uniswap v4 pool detection and the chain constants. Fixtures come from the Unichain and
-//! OP Mainnet pilot: real swap calldata, event topics and slot values.
+//! OP Mainnet pilot (EXPL-21): real swap calldata, event topics and slot values.
 
 use mev_revert_classifier::chain::Chain;
 use mev_revert_classifier::extract::*;
@@ -215,7 +215,7 @@ fn timing(c: Chain) -> Timing {
 
 #[test]
 fn chain_clocks_match_pilot_receipts() {
-    // blockTimestamp of the receipts of the chain pilot.
+    // blockTimestamp of the receipts of the chain pilot (EXPL-21).
     assert_eq!(
         block_timestamp_on(timing(Chain::Unichain), 0x3a59ed0),
         0x6acebe97

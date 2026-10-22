@@ -33,6 +33,9 @@ SEMILLA = 20261017
 B_BOOT = 1000
 K_PERM = 1000
 N_DECIL = 10
+PM_V4 = {"base": "0x498581ff718922c3f8e6a244956af099b2652b2b",
+         "unichain": "0x1f98400000000000000000000000000000000004",
+         "op": "0x9a13f98cb987694c9f086b1f5eb990eea8264ec3"}  # = Chain::pool_manager() de Rust
 VARIANTES = ("sin_probes", "con_probes")
 
 
@@ -188,13 +191,18 @@ def main():
     if "--bloque" in sys.argv:
         bloque = True
         sys.argv.remove("--bloque")
+    pm = None
+    if "--v4-swap-pools" in sys.argv:  # equivale a `race --v4-swap-pools` (ERR-12)
+        sys.argv.remove("--v4-swap-pools")
+        pm = PM_V4[op["cadena"]]
     solo_sin = "--sin-probes" in sys.argv
     if solo_sin:
         sys.argv.remove("--sin-probes")
     a = cc.argumentos(__doc__ + "\nOpciones extra: --bins N (default 10), --bloque (celda = "
                       "entidad x bloque), --sin-probes (solo esa variante), --chain base|unichain|op, "
                       "--exclude-system[=BOOL] (default: no en base, si en unichain y op), "
-                      "--system-list RUTA, --max-sender-degree N.")
+                      "--system-list RUTA, --max-sender-degree N, --v4-swap-pools (los Swap del PoolManager v4 "
+                      "cuentan como pseudo-pools v4:<PoolId>; usar con filas extraidas con --v4-pools).")
     modo = "entidad x bloque" if bloque else f"entidad x bin (N={nbins})"
     permitidos = {b for bs in cc.cargar_muestra(a.blocks, a.split).values() for b in bs}
     print(f"# semilla={SEMILLA} B={B_BOOT} K={K_PERM} split={a.split}; p de una cola (MH > 0); celdas {modo}")
@@ -209,7 +217,7 @@ def main():
             if not os.path.isfile(os.path.join(a.raw, f"{b}.receipts.json.gz")):  # solo receipts (desviacion post-sello AF-02)
                 sin_crudo.add(b)
                 continue
-            sw.update(osw.swaps_por_tx(cc._leer_gz(a.raw, b, "receipts", permitidos)))
+            sw.update(osw.swaps_por_tx(cc._leer_gz(a.raw, b, "receipts", permitidos), pm))
         txs = [(r.block, r.tx_index, e.entidad(r), r.pools, r.kind,
                 sw.get(r.tx_hash, frozenset()) if r.kind == "success" else frozenset())
                for r in con_pools if r.block not in sin_crudo]

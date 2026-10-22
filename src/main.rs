@@ -60,6 +60,122 @@ struct ChainArgs {
     system_list: PathBuf,
 }
 
+#[derive(Clone, Copy, ValueEnum)]
+enum XDefArg {
+    PriorOther,
+    LaterOther,
+    DonorPool,
+    PriorSame,
+    UserPrior,
+    AnyPrior,
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+enum XAlsoArg {
+    None,
+    PriorOther,
+    UserPrior,
+    PriorSame,
+    LaterOther,
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+enum PRuleArg {
+    Trace,
+    Contract,
+    ContractSubset,
+    TraceOnContractSubset,
+}
+
+/// AF-04 options of `race` (ADR 006): all opt-in; without any of them the output of `race`
+/// is the one of v0.7.0.
+#[derive(clap::Args)]
+struct Af04Args {
+    #[arg(
+        long,
+        value_enum,
+        help = "Exposure X: prior_other (AF-02), later_other (temporal placebo), donor_pool (pool placebo), prior_same (entity placebo), user_prior, any_prior"
+    )]
+    x_def: Option<XDefArg>,
+    #[arg(
+        long,
+        value_enum,
+        help = "Second indicator folded into the cells: (entity, bin, Z)"
+    )]
+    x_also: Option<XAlsoArg>,
+    #[arg(
+        long,
+        value_enum,
+        help = "Pools of X: trace (AF-02) or the contract-week rule (10% of the successful swaps of the contract, at most 5)"
+    )]
+    p_rule: Option<PRuleArg>,
+    #[arg(long, help = "Cells (entity, bin, min(|P|, 3))")]
+    p_size_strata: bool,
+    #[arg(
+        long,
+        help = "Minimum share of failed attempts of a bot contract (AF-02: 0.5)"
+    )]
+    bot_share: Option<f64>,
+    #[arg(long, default_value = "1", help = "Seed of the donor choice")]
+    donor_seed: u64,
+    #[arg(
+        long,
+        help = "Keep only transactions with a donor, whatever the exposure"
+    )]
+    donor_subset: bool,
+    #[arg(
+        long,
+        help = "Swap logs of the v4 PoolManager count as pseudo-pools v4:<PoolId> (use with rows extracted with --v4-pools)"
+    )]
+    v4_swap_pools: bool,
+    #[arg(
+        long,
+        help = "Grid of q_R, q_S over the bot transactions with empty P (selection bounds)"
+    )]
+    missing_grid: bool,
+    #[arg(
+        long,
+        help = "Exact decomposition of the gap between decile-only and (entity, decile)"
+    )]
+    decompose: bool,
+    #[arg(
+        long,
+        help = "Concentration of the MH weight by entity key and leave-one-out of the K largest keys"
+    )]
+    loo: Option<usize>,
+    #[arg(long, help = "DerSimonian-Laird heterogeneity between strata")]
+    het: bool,
+    #[arg(
+        long,
+        value_delimiter = ',',
+        help = "Substrings of stratum names: one heterogeneity report per group"
+    )]
+    het_groups: Vec<String>,
+    #[arg(
+        long,
+        help = "Write variant, stratum, num, den per stratum (input of race-contrast)"
+    )]
+    emit_weeks: Option<PathBuf>,
+}
+
+impl Af04Args {
+    fn active(&self) -> bool {
+        self.x_def.is_some()
+            || self.x_also.is_some()
+            || self.p_rule.is_some()
+            || self.p_size_strata
+            || self.bot_share.is_some()
+            || self.donor_subset
+            || self.v4_swap_pools
+            || self.missing_grid
+            || self.decompose
+            || self.loo.is_some()
+            || self.het
+            || !self.het_groups.is_empty()
+            || self.emit_weeks.is_some()
+    }
+}
+
 /// [`ChainArgs`] resolved: clock and filter (`None` when the filter is off).
 struct ChainCtx {
     chain: Chain,
@@ -387,7 +503,22 @@ enum Command {
         )]
         max_sender_degree: Option<usize>,
         #[command(flatten)]
+        af04: Af04Args,
+        #[command(flatten)]
         chain: ChainArgs,
+    },
+    /// Contrast of two estimands of `race --emit-weeks` files (same strata, same resamples of weeks)
+    RaceContrast {
+        #[arg(long)]
+        a: PathBuf,
+        #[arg(long)]
+        b: PathBuf,
+        #[arg(long, default_value = "sin_probes")]
+        variant: String,
+        #[arg(long, default_value = "1000")]
+        bootstrap: usize,
+        #[arg(long, default_value = "20261017")]
+        seed: u64,
     },
     /// Neighbor bound of block synchrony (P-2): C(0) - C(k) with the neighbors of a `sample --neighbors` file
     Neighbor {
@@ -508,6 +639,7 @@ fn main() -> Result<()> {
             seed,
             sin_probes_only,
             max_sender_degree,
+            af04,
             chain,
         } => {
             if bins == 0 {
@@ -522,6 +654,19 @@ fn main() -> Result<()> {
                 bins,
             };
             let ctx = chain.resolve()?;
+            if af04.active() {
+                return run_race_af04(
+                    &rows,
+                    &blocks,
+                    split,
+                    &raw,
+                    &params,
+                    sin_probes_only,
+                    max_sender_degree,
+                    &af04,
+                    &ctx,
+                );
+            }
             run_race(
                 &rows,
                 &blocks,
@@ -533,6 +678,13 @@ fn main() -> Result<()> {
                 &ctx,
             )
         }
+        Command::RaceContrast {
+            a,
+            b,
+            variant,
+            bootstrap,
+            seed,
+        } => run_race_contrast(&a, &b, &variant, bootstrap, seed),
         Command::Neighbor {
             rows,
             blocks,
@@ -895,6 +1047,23 @@ fn fetch(
     Ok(())
 }
 
+/// ERR-12 guard: rows extracted with `--v4-pools` carry `v4:<PoolId>` pseudo-pools, and reading
+/// them without `--v4-swap-pools` makes no v4 swap count as an earlier swap. Warns on STDERR only,
+/// so stdout stays byte-identical.
+fn warn_v4_rows(rows: &[TxRow], v4_swap_pools: bool) {
+    if v4_swap_pools {
+        return;
+    }
+    let n = rows.iter().filter(|r| r.pools.contains("v4:")).count();
+    if n > 0 {
+        eprintln!(
+            "warning: {n} rows carry v4:<PoolId> pseudo-pools but --v4-swap-pools is not set; \
+             Swap logs of the PoolManager will not count as earlier swaps (ERR-12). \
+             Pass --v4-swap-pools to read them as pseudo-pools."
+        );
+    }
+}
+
 fn read_rows(path: &Path) -> Result<Vec<TxRow>> {
     let mut r =
         csv::Reader::from_path(path).with_context(|| format!("no rows at {}", path.display()))?;
@@ -1118,6 +1287,7 @@ fn run_race(
     ctx: &ChainCtx,
 ) -> Result<()> {
     let rows = read_rows(rows_path)?;
+    warn_v4_rows(&rows, false);
     let sample = read_sample(blocks_csv)?;
     let mut strata: BTreeMap<&str, Vec<u64>> = BTreeMap::new();
     ctx.check_sample(&selected(&sample, split))?;
@@ -1171,6 +1341,270 @@ fn run_race(
         }
     }
     println!("bloques sin crudo: {missing}");
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn run_race_af04(
+    rows_path: &Path,
+    blocks_csv: &Path,
+    split: Split,
+    raw: &Path,
+    params: &race::RaceParams,
+    sin_probes_only: bool,
+    max_sender_degree: Option<usize>,
+    a: &Af04Args,
+    ctx: &ChainCtx,
+) -> Result<()> {
+    use mev_revert_classifier::placebo::{self as pl, PRule, XAlso, XDef};
+    use mev_revert_classifier::robust;
+    let rows = read_rows(rows_path)?;
+    warn_v4_rows(&rows, a.v4_swap_pools);
+    let sample = read_sample(blocks_csv)?;
+    let mut strata: BTreeMap<&str, Vec<u64>> = BTreeMap::new();
+    ctx.check_sample(&selected(&sample, split))?;
+    for b in selected(&sample, split) {
+        strata.entry(&b.stratum).or_default().push(b.block);
+    }
+    println!("mev-revert-classifier v{} race", env!("CARGO_PKG_VERSION"));
+    println!("rows sha256 {}", sha256_hex(&fs::read(rows_path)?));
+    println!(
+        "# seed={} B={} K={} boot-unit={} bins={} cells={}; one-sided p (MH > 0); POOL = cells nested in strata, intervals by {}",
+        params.seed,
+        params.bootstrap,
+        params.permutations,
+        if params.week_unit { "week" } else { "hour" },
+        params.bins,
+        if params.cell_block { "entity x block" } else { "entity x bin" },
+        if params.week_unit { "whole strata" } else { "hours within strata" },
+    );
+    ctx.describe(&rows);
+    if let Some(k) = max_sender_degree {
+        println!("entities: senders with degree >= {k} ignored (max sender degree {k})");
+    }
+    let variant = pl::Variant {
+        x_def: match a.x_def {
+            None | Some(XDefArg::PriorOther) => XDef::PriorOther,
+            Some(XDefArg::LaterOther) => XDef::LaterOther,
+            Some(XDefArg::DonorPool) => XDef::DonorPool,
+            Some(XDefArg::PriorSame) => XDef::PriorSame,
+            Some(XDefArg::UserPrior) => XDef::UserPrior,
+            Some(XDefArg::AnyPrior) => XDef::AnyPrior,
+        },
+        also: match a.x_also {
+            None | Some(XAlsoArg::None) => XAlso::None,
+            Some(XAlsoArg::PriorOther) => XAlso::PriorOther,
+            Some(XAlsoArg::UserPrior) => XAlso::UserPrior,
+            Some(XAlsoArg::PriorSame) => XAlso::PriorSame,
+            Some(XAlsoArg::LaterOther) => XAlso::LaterOther,
+        },
+        p_rule: match a.p_rule {
+            None | Some(PRuleArg::Trace) => PRule::Trace,
+            Some(PRuleArg::Contract) => PRule::Contract,
+            Some(PRuleArg::ContractSubset) => PRule::ContractSubset,
+            Some(PRuleArg::TraceOnContractSubset) => PRule::TraceOnContractSubset,
+        },
+        p_size: a.p_size_strata,
+        donor_subset: a.donor_subset,
+    };
+    println!(
+        "af04 variant: {} bot-share={} donor-seed={} v4-swap-pools={}",
+        variant.label(),
+        a.bot_share.map_or("0.5".to_string(), |v| v.to_string()),
+        a.donor_seed,
+        a.v4_swap_pools
+    );
+    let opts = race::StratumOpts {
+        timing: ctx.timing,
+        max_sender_degree,
+        system: ctx.system.as_ref(),
+    };
+    let eo = pl::ExtOpts {
+        want_ext: true,
+        bot_share: a.bot_share,
+        donor_seed: a.donor_seed,
+        v4_pool_manager: a.v4_swap_pools.then(|| ctx.chain.pool_manager()),
+    };
+    let (mut data, mut exts, mut missing) = (Vec::new(), Vec::new(), 0usize);
+    for (name, blocks) in &strata {
+        let set: HashSet<u64> = blocks.iter().copied().collect();
+        let mine: Vec<TxRow> = rows
+            .iter()
+            .filter(|r| set.contains(&r.block))
+            .cloned()
+            .collect();
+        let (d, e, miss) =
+            race::build_stratum_ext(name, &mine, blocks, raw, params.bins, &opts, &eo)?;
+        missing += miss.len();
+        data.push(d);
+        exts.push(e.expect("ext requested"));
+    }
+    let (vdata, vs) = pl::apply_variant(&data, &exts, &variant);
+    println!(
+        "af04 coverage: universe(non-probe)={} kept={} share={:.4} empty-P bot tx (non-probe): reverts={} successes={}",
+        vs.universe,
+        vs.kept,
+        if vs.universe > 0 { vs.kept as f64 / vs.universe as f64 } else { f64::NAN },
+        exts.iter().flat_map(|e| &e.empty).filter(|e| !e.tx.probe && e.tx.y).count(),
+        exts.iter().flat_map(|e| &e.empty).filter(|e| !e.tx.probe && !e.tx.y).count(),
+    );
+    let label = if variant.is_default() {
+        "sin_probes".to_string()
+    } else {
+        "sin_probes*".to_string()
+    };
+    let variants: &[(&str, bool)] = if sin_probes_only {
+        &[("sin_probes", false)]
+    } else {
+        &[("sin_probes", false), ("con_probes", true)]
+    };
+    for (vi, (l, with_probes)) in variants.iter().enumerate() {
+        let l = if *l == "sin_probes" {
+            label.as_str()
+        } else {
+            l
+        };
+        for line in race::analyze(&vdata, vi as u64, *with_probes, params) {
+            if line.n > 0 {
+                println!("{}", race::format_line(l, &line));
+            }
+        }
+    }
+    println!("bloques sin crudo: {missing}");
+    let f = |v: f64| {
+        if v.is_nan() {
+            "n/a".to_string()
+        } else {
+            format!("{v:+.4}")
+        }
+    };
+    if let Some(path) = &a.emit_weeks {
+        let st = pl::week_stats(&vdata, false, params);
+        let mut out = String::new();
+        for (s, (n, d)) in vdata.iter().zip(&st) {
+            out.push_str(&format!("sin_probes\t{}\t{:?}\t{:?}\n", s.name, n, d));
+        }
+        fs::write(path, out)?;
+        println!("af04 weeks written: {}", path.display());
+    }
+    if a.missing_grid {
+        let g = pl::missing_grid(&data, &exts, 0.02, params);
+        println!("af04 missing-grid (no probes; empty-P bot tx: reverts={} successes={}); rows q_R, columns q_S = 0.0..1.0", g.n_empty_rev, g.n_empty_suc);
+        for (i, row) in g.points.chunks(11).enumerate() {
+            println!(
+                "af04 grid q_R={:.1} {}",
+                i as f64 / 10.0,
+                row.iter().map(|p| f(p.d)).collect::<Vec<_>>().join(" ")
+            );
+        }
+        println!(
+            "af04 grid min={} at q_R={:.1} q_S={:.1} [{},{}] max={} at q_R={:.1} q_S={:.1} tipping_q_R={}",
+            f(g.min.d), g.min.q_r, g.min.q_s, f(g.worst_ci.0), f(g.worst_ci.1),
+            f(g.max.d), g.max.q_r, g.max.q_s,
+            g.tipping.map_or("none".to_string(), |q| format!("{q:.1}")),
+        );
+    }
+    if a.decompose {
+        let r = robust::decompose(&vdata, 0, params);
+        let o = &r.obs;
+        println!(
+            "af04 decompose: dec={} mh={} gap={} comp={} [{},{}] wgt={} [{},{}] sup={} [{},{}] max_residual={:.3e} verdict={}",
+            f(o.dec), f(o.mh), f(o.gap), f(o.comp), f(r.ci_comp.0), f(r.ci_comp.1),
+            f(o.wgt), f(r.ci_wgt.0), f(r.ci_wgt.1), f(o.sup), f(r.ci_sup.0), f(r.ci_sup.1),
+            r.max_resid, r.verdict
+        );
+        let ew = robust::entity_weeks(&vdata);
+        println!(
+            "af04 entity-weeks (>=30 tx per group): positive={} negative={} zero={} skipped={}; MH weight positive={:.4} negative={:.4} zero={:.4} skipped={:.4}",
+            ew.pos, ew.neg, ew.zero, ew.skipped,
+            ew.w_pos, ew.w_neg, ew.w_zero, ew.w_skipped
+        );
+    }
+    if a.loo.is_some() || a.decompose {
+        let keys: Vec<Vec<String>> = exts.iter().map(|e| e.ent_keys.clone()).collect();
+        let conc = robust::concentration(&vdata, &keys);
+        println!(
+            "af04 concentration: keys={} hhi={:.4} top5={}",
+            conc.top.len(),
+            conc.hhi,
+            conc.top
+                .iter()
+                .take(5)
+                .map(|(k, s)| format!("{k}:{s:.4}"))
+                .collect::<Vec<_>>()
+                .join(" ")
+        );
+        if let Some(k) = a.loo {
+            for (key, share, d, ci) in robust::leave_one_out(&vdata, &keys, k, params) {
+                println!(
+                    "af04 loo without {key} (weight share {share:.4}): {} [{},{}]",
+                    f(d),
+                    f(ci.0),
+                    f(ci.1)
+                );
+            }
+        }
+    }
+    if a.het || !a.het_groups.is_empty() {
+        let mut groups: Vec<(String, Vec<usize>)> =
+            vec![("ALL".to_string(), (0..vdata.len()).collect())];
+        for g in &a.het_groups {
+            groups.push((
+                g.clone(),
+                (0..vdata.len())
+                    .filter(|&i| vdata[i].name.contains(g.as_str()))
+                    .collect(),
+            ));
+        }
+        for (g, idx) in groups {
+            let sub: Vec<_> = idx.iter().map(|&i| vdata[i].clone()).collect();
+            let est = robust::week_estimates(&sub, 0, params);
+            let index: Vec<f64> = (0..est.len()).map(|i| i as f64).collect();
+            match robust::dersimonian_laird(&est, &index) {
+                Some(h) => println!(
+                    "af04 het[{g}] k={} fe={} Q={:.3} tau2={:.6} I2={:.3} re={} se={:.4} ci=[{},{}] pred=[{},{}] slope={:+.6} spearman={:+.3}",
+                    h.k, f(h.fe), h.q, h.tau2, h.i2, f(h.re), h.re_se, f(h.re_ci.0), f(h.re_ci.1), f(h.pred.0), f(h.pred.1), h.slope, h.spearman
+                ),
+                None => println!("af04 het[{g}] n/a (fewer than 2 strata)"),
+            }
+        }
+    }
+    Ok(())
+}
+
+fn run_race_contrast(a: &Path, b: &Path, variant: &str, bootstrap: usize, seed: u64) -> Result<()> {
+    use mev_revert_classifier::placebo as pl;
+    let wa = pl::read_weeks(&fs::read_to_string(a)?, variant);
+    let wb = pl::read_weeks(&fs::read_to_string(b)?, variant);
+    let names: std::collections::BTreeSet<&String> = wa.keys().chain(wb.keys()).collect();
+    let get = |m: &BTreeMap<String, (f64, f64)>| -> Vec<(f64, f64)> {
+        names
+            .iter()
+            .map(|n| m.get(*n).copied().unwrap_or((0.0, 0.0)))
+            .collect()
+    };
+    let p = race::RaceParams {
+        bootstrap,
+        seed,
+        ..race::RaceParams::default()
+    };
+    let (diff, ci, ea, eb) = pl::contrast(&get(&wa), &get(&wb), 0, &p);
+    println!(
+        "mev-revert-classifier v{} race-contrast",
+        env!("CARGO_PKG_VERSION")
+    );
+    println!(
+        "# a={} b={} strata={} (union) B={} seed={}; joint bootstrap of whole strata",
+        a.display(),
+        b.display(),
+        names.len(),
+        bootstrap,
+        seed
+    );
+    println!(
+        "a={ea:+.4} b={eb:+.4} a-b={diff:+.4} [{:+.4},{:+.4}]",
+        ci.0, ci.1
+    );
     Ok(())
 }
 

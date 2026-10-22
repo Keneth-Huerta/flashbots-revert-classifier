@@ -27,7 +27,7 @@ fn burst(bot: &str, block: u64, n: usize) -> Vec<DuneTransaction> {
         .collect()
 }
 
-// "unique bots" used to count (block, bot) groups.
+// ERR-04: "unique bots" used to count (block, bot) groups.
 #[test]
 fn unique_bots_counts_bots_not_groups() {
     let mut data = Vec::new();
