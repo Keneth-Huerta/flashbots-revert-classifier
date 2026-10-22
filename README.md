@@ -1,5 +1,9 @@
 # mev-revert-classifier
 
+[![Data DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23549452.svg)](https://doi.org/10.5281/zenodo.23549452)
+[![Release](https://img.shields.io/github/v/release/Keneth-Huerta/flashbots-revert-classifier)](https://github.com/Keneth-Huerta/flashbots-revert-classifier/releases/tag/v1.0.0)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Rust CLI and analysis scripts for studying **failed arbitrage attempts** (probes and reverts) on
 OP-stack chains: Base, Unichain and OP Mainnet. The repository holds the code, the block samples,
 the preregistrations and the sealed hashes of four studies:
