@@ -9,9 +9,19 @@ authors:
     affiliation: "Escuela Superior de Computo (ESCOM), Instituto Politecnico Nacional (IPN)"
 repository-code: "https://github.com/Keneth-Huerta/flashbots-revert-classifier"
 license: MIT
-version: 1.0.0
-date-released: "2026-10-21"
+version: 1.0.1
+date-released: "2026-10-25"
 references:
+  - type: article
+    title: "Failed Arbitrage Attempts on Base: Bot Competition or Isolated Search?"
+    authors:
+      - family-names: "Huerta Galindo"
+        given-names: "Keneth Issac"
+        orcid: "https://orcid.org/0009-0004-9084-2937"
+    doi: "10.5281/zenodo.23610470"
+    year: 2026
+    url: "https://doi.org/10.5281/zenodo.23610470"
+    notes: "Preprint. This DOI resolves to the latest version."
   - type: report
     title: "Preregistro de AF-03: carrera dentro del bloque y cota de sincronia en Unichain y OP Mainnet"
     authors:

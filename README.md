@@ -1,7 +1,7 @@
 # mev-revert-classifier
 
 [![Data DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23549452.svg)](https://doi.org/10.5281/zenodo.23549452)
-[![Release](https://img.shields.io/github/v/release/Keneth-Huerta/flashbots-revert-classifier)](https://github.com/Keneth-Huerta/flashbots-revert-classifier/releases/tag/v1.0.0)
+[![Release](https://img.shields.io/github/v/release/Keneth-Huerta/flashbots-revert-classifier)](https://github.com/Keneth-Huerta/flashbots-revert-classifier/releases/tag/v1.0.1)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 Rust CLI and analysis scripts for studying **failed arbitrage attempts** (probes and reverts) on
@@ -203,4 +203,4 @@ the preregistrations, use [CITATION.cff](CITATION.cff) (GitHub shows a "Cite thi
 Author: Keneth Issac Huerta Galindo, Escuela Superior de Computo (ESCOM), Instituto Politecnico
 Nacional. ORCID [0009-0004-9084-2937](https://orcid.org/0009-0004-9084-2937).
 
-Preprint with the full write-up: [10.5281/zenodo.23610471](https://doi.org/10.5281/zenodo.23610471).
+Preprint with the full write-up: [10.5281/zenodo.23610470](https://doi.org/10.5281/zenodo.23610470) (latest version).
