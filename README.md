@@ -17,8 +17,12 @@ the preregistrations and the sealed hashes of four studies:
 
 [RESULTS.md](RESULTS.md) has the results. In brief: most of the overlap that v0.1.0 of this tool
 called "contention" is one bot repeating itself, and the measurable evidence of a race inside the
-block is much smaller. AF-03 reached no decision on the race test in either chain. AF-04 finds the race
+block is much smaller (see Errata 2026-10-25). AF-03 reached no decision on the race test in either chain. AF-04 finds the race
 again in 2024 and 2026, with a joint reading of the placebos that is inconclusive.
+
+Errata 2026-10-25: that comparison sets an excess of overlap over a null against 0.9, which are not
+the same kind of quantity; the study gives no replacement for the 90%. See the Errata section of
+[RESULTS.md](RESULTS.md).
 
 ## Definitions used here
 
@@ -198,3 +202,5 @@ the preregistrations, use [CITATION.cff](CITATION.cff) (GitHub shows a "Cite thi
 
 Author: Keneth Issac Huerta Galindo, Escuela Superior de Computo (ESCOM), Instituto Politecnico
 Nacional. ORCID [0009-0004-9084-2937](https://orcid.org/0009-0004-9084-2937).
+
+Preprint with the full write-up: [10.5281/zenodo.23610471](https://doi.org/10.5281/zenodo.23610471).

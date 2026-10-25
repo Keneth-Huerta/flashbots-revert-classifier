@@ -10,19 +10,38 @@ Terms: a **probe** is a successful transaction that emits no external logs and c
 a sender. **Overlap** is the share of a failed attempt's pools (weighted by how few entities touch
 each pool) that another entity also touched in the same block.
 
+## Errata (2026-10-25)
+
+Three phrases above were worded more strongly than the evidence allows. The original sentences stay
+as published; this section replaces them. Full write-up: preprint, https://doi.org/10.5281/zenodo.23610471.
+
+1. **"The overlap above a within-hour null is 0.05 to 0.15 instead of 0.9."** An excess of overlap
+   over a null is not a share of failures, so it cannot be compared with 0.9. The 90% figure is
+   retracted and this study gives no replacement for it: the design cannot say what share of failed
+   attempts is due to competition.
+2. **AF-01 and AF-02 as preregistered and sealed.** Both were sealed before their confirmatory data
+   were opened, but the design is partly retrospective. The question came after I had seen a Dune
+   export of 591 consecutive blocks from June, and I chose the race estimator and the non-probe
+   population after running the same contrast on AF-01's confirmatory weeks (+0.05 to +0.07). The
+   48 weeks of AF-02 are an out-of-sample replication of a known direction, not a discovery; the
+   out-of-sample test is AF-04.
+3. **AF-04, "users who are not bots raise the rate more than swaps by other bots" (+0.2224 against
+   +0.1357).** I did not test that difference, so the data do not support saying "more". Read the two
+   numbers as separate estimates.
+
 ## v0.1.0 claim, retracted
 
 Version 0.1.0 grouped attempts by bot and block and called dense groups "contention"; a figure of
 about 90% was quoted publicly. That figure measured one bot repeating itself. It did not measure
 different bots competing. Under the corrected measure below, the overlap above a within-hour null
-is 0.05 to 0.15 instead of 0.9. Run on the AF-01 weeks, the v0.1.0 heuristic still marks 69% to 95%
+is 0.05 to 0.15 instead of 0.9. (see Errata 2026-10-25) Run on the AF-01 weeks, the v0.1.0 heuristic still marks 69% to 95%
 of failed attempts as "contention", which shows the size of the error.
 
 ## AF-01: overlap between entities on Base (4 weeks)
 
 Weeks starting 2025-06-22, 2025-08-10, 2025-09-14 and 2025-12-21, about 800 blocks each, sampled
 by UTC hour. The author preregistered and sealed the study in a private repository before opening the
-confirmatory blocks (`docs/04_investigacion_y_labs/`). The seal time is the author's own commit
+confirmatory blocks (`docs/04_investigacion_y_labs/`). (see Errata 2026-10-25) The seal time is the author's own commit
 time with no external timestamp, so this seal is weaker evidence than AF-03's.
 
 Statistic: weighted overlap CRw of failed attempts, against a null that reshuffles each entity's
@@ -56,7 +75,7 @@ It does not support the following (from the review the author wrote after the ru
 
 The 48 weeks of 2025 not used in AF-01, 504 anchor blocks per week, sampled by UTC hour.
 The author preregistered and sealed the study privately before the download (commit time only, no
-external timestamp).
+external timestamp). (see Errata 2026-10-25)
 
 **H1, race.** Among non-probe transactions from bot contracts, the test compares the revert rate
 of those that follow a successful swap by another entity earlier in the block on one of the same
@@ -208,7 +227,7 @@ Other results on the fresh weeks (they refine the wording and do not change the 
 - A prior swap by the **same** entity lowers the revert rate: -0.1182 [-0.1444, -0.0886]. The
   author did not predict it and does not explain it.
 - Swaps by users who are not bots raise the rate more than swaps by other bots (+0.2224 against
-  +0.1357; in 2025 +0.1188 against +0.0775); the race among bots holds within cells split by user
+  +0.1357; in 2025 +0.1188 against +0.0775 (see Errata 2026-10-25)); the race among bots holds within cells split by user
   swaps (+0.1412 [+0.1186, +0.1651]).
 - Selection by the pool set is not ruled out. Pools fixed per contract from its successful swaps,
   which do not depend on the outcome but pull toward zero through measurement error, give +0.0299
