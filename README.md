@@ -1,5 +1,6 @@
 # mev-revert-classifier
 
+[![Preprint DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23610470.svg)](https://doi.org/10.5281/zenodo.23610470)
 [![Data DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23549452.svg)](https://doi.org/10.5281/zenodo.23549452)
 [![Release](https://img.shields.io/github/v/release/Keneth-Huerta/flashbots-revert-classifier)](https://github.com/Keneth-Huerta/flashbots-revert-classifier/releases/tag/v1.0.1)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
